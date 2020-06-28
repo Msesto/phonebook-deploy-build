@@ -1,8 +1,14 @@
+require('dotenv').config();
 const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
+const Person = require('./models/person-backend');
 
 const app = express();
+
+app.use(express.static('build'));
+app.use(express.json());
+app.use(cors());
 
 morgan.token('post-req', function(req, res) {
   if (Object.values(req.body).length > 0) {
@@ -10,86 +16,95 @@ morgan.token('post-req', function(req, res) {
   }
   return null;
 });
+
 app.use(
   morgan(
     ':method :url :status :res[content-length] - :response-time ms :post-req'
   )
 );
 
-app.use(express.json());
-app.use(cors());
-app.use(express.static('build'));
-
-let persons = [
-  {
-    name: 'Arto Hellas',
-    number: '040-123456',
-    id: 1,
-  },
-  {
-    name: 'Ada Lovelace',
-    number: '39-44-5323523',
-    id: 2,
-  },
-  {
-    name: 'Dan Abramov',
-    number: '12-43-234345',
-    id: 3,
-  },
-  {
-    name: 'Mary Poppendieck',
-    number: '39-23-6423122',
-    id: 4,
-  },
-];
-
 app.get('/info', (req, res) => {
-  res.send(`Phonebook has info for ${persons.length} people ${new Date()}`);
+  console.log(Person.estimatedDocumentCount());
+  Person.countDocuments({}, function(err, count) {
+    res.send(`Phonebook has info for ${count} people  --  ${new Date()}`);
+  });
 });
 
 app.get('/api/persons', (req, res) => {
-  res.json(persons);
-});
-
-app.get('/api/persons/:id', (req, res) => {
-  const { id } = req.params;
-  const person = persons.find(each => each.id === Number(id));
-  /*eslint-disable*/
-  person ? res.json(person) : res.status(404).end();
-});
-
-app.delete('/api/persons/:id', (req, res) => {
-    const { id } = req.params;
-    persons = persons.filter(each => each.id !== Number(id));
-    res.status(204).end()
+  Person.find({}).then(each => {
+    res.json(each);
   });
-  
-app.post('/api/persons', (req, res) => {
-    const maxId = persons.length > 0
-    ? Math.max(...persons.map(n => n.id)) 
-    : 0
-    const incoming = req.body;
-    const person = {
-        name: incoming.name,
-        number: incoming.number,
-        id: maxId + 1,
-    }
-    if(!(person.name && person.number)){
-        return res.status(400).json({ 
-            error: 'Name or phone number are missing.' 
-          })
-    }
-    if(persons.find(each => each.name === person.name)){
-        return res.status(400).json({ 
-            error: `${person.name} is already in the phonebook.` 
-          })
-    }
-    persons = persons.concat(person);
-    res.json(person);
-  })
+});
 
-  const PORT = process.env.PORT || 3001
+app.get('/api/persons/:id', (req, res, next) => {
+  Person.findById(req.params.id)
+    .then(person => {
+      if (person) {
+        res.json(person);
+      } else {
+        res
+          .status(404)
+          .send({ error: 'inexisting ID in database' })
+          .end();
+      }
+    })
+    .catch(error => next(error));
+});
+
+app.put('/api/persons/:id', (req, res, next) => {
+  const { body } = req;
+  const person = {
+    name: body.name,
+    number: body.number,
+  };
+
+  Person.findByIdAndUpdate(req.params.id, person, { new: true })
+    .then(updatedPerson => {
+      res.json(updatedPerson);
+    })
+    .catch(error => next(error));
+});
+
+app.delete('/api/persons/:id', (req, res, next) => {
+  Person.findByIdAndRemove(req.params.id)
+    .then(result => {
+      res.status(204).end();
+    })
+    .catch(error => next(error));
+});
+
+app.post('/api/persons', (req, res) => {
+  const { body } = req;
+  if (body.name === undefined) {
+    return res.status(400).json({ error: 'Name missing' });
+  }
+  const person = new Person({
+    name: body.name,
+    number: body.number,
+  });
+  person.save().then(savedPerson => {
+    res.json(savedPerson);
+  });
+});
+
+const { PORT } = process.env;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: 'unknown endpoint' });
+};
+
+app.use(unknownEndpoint);
+
+const errorHandler = (error, req, res, next) => {
+  console.error(error.message);
+  if (error.name === 'CastError') {
+    return res.status(400).send({ error: 'malformatted id' });
+  }
+
+  next(error);
+};
+
+app.use(errorHandler);
