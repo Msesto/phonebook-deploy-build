@@ -73,7 +73,7 @@ app.delete('/api/persons/:id', (req, res, next) => {
     .catch(error => next(error));
 });
 
-app.post('/api/persons', (req, res) => {
+app.post('/api/persons', (req, res, next) => {
   const { body } = req;
   if (body.name === undefined) {
     return res.status(400).json({ error: 'Name missing' });
@@ -82,9 +82,12 @@ app.post('/api/persons', (req, res) => {
     name: body.name,
     number: body.number,
   });
-  person.save().then(savedPerson => {
-    res.json(savedPerson);
-  });
+  person
+    .save()
+    .then(savedPerson => {
+      res.json(savedPerson);
+    })
+    .catch(error => next(error));
 });
 
 const { PORT } = process.env;
