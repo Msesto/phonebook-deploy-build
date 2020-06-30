@@ -10,7 +10,7 @@ app.use(express.static('build'));
 app.use(express.json());
 app.use(cors());
 
-morgan.token('post-req', function(req, res) {
+morgan.token('post-req', function (req, res) {
   if (Object.values(req.body).length > 0) {
     return JSON.stringify(req.body);
   }
@@ -25,7 +25,7 @@ app.use(
 
 app.get('/info', (req, res) => {
   console.log(Person.estimatedDocumentCount());
-  Person.countDocuments({}, function(err, count) {
+  Person.countDocuments({}, function (err, count) {
     res.send(`Phonebook has info for ${count} people  --  ${new Date()}`);
   });
 });
