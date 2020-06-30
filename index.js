@@ -1,62 +1,60 @@
-require('dotenv').config();
-const express = require('express');
-const morgan = require('morgan');
-const cors = require('cors');
-const Person = require('./models/person-backend');
+require('dotenv').config()
+const express = require('express')
+const morgan = require('morgan')
+const cors = require('cors')
+const Person = require('./models/person-backend')
 
-const app = express();
+const app = express()
 
-app.use(express.static('build'));
-app.use(express.json());
-app.use(cors());
-
+app.use(express.static('build'))
+app.use(express.json())
+app.use(cors())
+/*eslint-disable*/
 morgan.token('post-req', function (req, res) {
   if (Object.values(req.body).length > 0) {
-    return JSON.stringify(req.body);
+    return JSON.stringify(req.body)
   }
-  return null;
-});
-
+  return null
+})
 app.use(
   morgan(
     ':method :url :status :res[content-length] - :response-time ms :post-req'
   )
-);
-
+)
 app.get('/info', (req, res) => {
-  console.log(Person.estimatedDocumentCount());
+  console.log(Person.estimatedDocumentCount())
   Person.countDocuments({}, function (err, count) {
-    res.send(`Phonebook has info for ${count} people  --  ${new Date()}`);
-  });
-});
+    res.send(`Phonebook has info for ${count} people  --  ${new Date()}`)
+  })
+})
 
 app.get('/api/persons', (req, res) => {
   Person.find({}).then(each => {
-    res.json(each);
-  });
-});
+    res.json(each)
+  })
+})
 
 app.get('/api/persons/:id', (req, res, next) => {
   Person.findById(req.params.id)
     .then(person => {
       if (person) {
-        res.json(person);
+        res.json(person)
       } else {
         res
           .status(404)
           .send({ error: 'inexisting ID in database' })
-          .end();
+          .end()
       }
     })
-    .catch(error => next(error));
-});
+    .catch(error => next(error))
+})
 
 app.put('/api/persons/:id', (req, res, next) => {
-  const { body } = req;
+  const { body } = req
   const person = {
     name: body.name,
     number: body.number,
-  };
+  }
 
   Person.findByIdAndUpdate(req.params.id, person, {
     new: true,
@@ -64,57 +62,57 @@ app.put('/api/persons/:id', (req, res, next) => {
     context: 'query',
   })
     .then(updatedPerson => {
-      res.json(updatedPerson);
+      res.json(updatedPerson)
     })
-    .catch(error => next(error));
-});
+    .catch(error => next(error))
+})
 
 app.delete('/api/persons/:id', (req, res, next) => {
   Person.findByIdAndRemove(req.params.id)
-    .then(result => {
-      res.status(204).end();
+    .then(() => {
+      res.status(204).end()
     })
-    .catch(error => next(error));
-});
+    .catch(error => next(error))
+})
 
 app.post('/api/persons', (req, res, next) => {
-  const { body } = req;
+  const { body } = req
   if (body.name === undefined) {
-    return res.status(400).json({ error: 'Name missing' });
+    return res.status(400).json({ error: 'Name missing' })
   }
   const person = new Person({
     name: body.name,
     number: body.number,
-  });
+  })
   person
     .save()
     .then(savedPerson => {
-      res.json(savedPerson);
+      res.json(savedPerson)
     })
-    .catch(error => next(error));
-});
+    .catch(error => next(error))
+})
 
-const { PORT } = process.env;
+const { PORT } = process.env
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+  console.log(`Server running on port ${PORT}`)
+})
 
 const unknownEndpoint = (request, response) => {
-  response.status(404).send({ error: 'unknown endpoint' });
-};
+  response.status(404).send({ error: 'unknown endpoint' })
+}
 
-app.use(unknownEndpoint);
+app.use(unknownEndpoint)
 
 const errorHandler = (error, req, res, next) => {
-  console.error(error.message);
+  console.error(error.message)
   if (error.name === 'CastError') {
-    return res.status(400).send({ error: 'malformatted id' });
+    return res.status(400).send({ error: 'malformatted id' })
   }
   if (error.name === 'ValidationError') {
-    return res.status(400).json({ error: error.name });
+    return res.status(400).json({ error: error.name })
   }
 
-  next(error);
-};
+  next(error)
+}
 
-app.use(errorHandler);
+app.use(errorHandler)
